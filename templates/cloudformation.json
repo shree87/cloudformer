@@ -1,0 +1,203 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Transform": "AWS::Serverless-2016-10-31",
+  "Description": "Serverless Express Application/API powered by API Gateway and Lambda",
+  "Resources": {
+    "ApiGatewayApi": {
+      "Type": "AWS::Serverless::Api",
+      "Properties": {
+        "DefinitionUri": "./simple-proxy-api.json",
+        "StageName": "YOUR_API_GW_STAGE",
+        "Variables": {
+          "ServerlessExpressLambdaFunctionName": {
+            "Ref": "YOUR_TECHNICAL_LAMBDA_NAME"
+          }
+        }
+      }
+    },
+    "LambdaExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "lambda.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        },
+        "Path": "/",
+        "Policies": [{
+          "PolicyName": "root",
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [{
+              "Effect": "Allow",
+              "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+              ],
+              "Resource": "arn:aws:logs:*:*:*"
+            }]
+          }
+        }]
+      }
+    },
+    "LambdaApiGatewayExecutionPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "YOUR_TECHNICAL_LAMBDA_NAME",
+            "Arn"
+          ]
+        },
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": {
+          "Fn::Join": [
+            "", [
+              "arn:aws:execute-api:",
+              {
+                "Ref": "AWS::Region"
+              },
+              ":",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              ":",
+              {
+                "Ref": "ApiGatewayApi"
+              },
+              "/*/*"
+            ]
+          ]
+        }
+      }
+    },
+    "YOUR_TECHNICAL_LAMBDA_NAME": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "CodeUri": "./",
+        "FunctionName": "YOUR_FRIENDLY_LAMBDA_NAME",
+        "Handler": "lambda.handler",
+        "MemorySize": 1024,
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaExecutionRole",
+            "Arn"
+          ]
+        },
+        "Runtime": "nodejs6.10",
+        "Timeout": 60,
+        "Environment": {
+          "Variables": {
+            "DBHOST": "not-used-in-this-project",
+            "DBPORT": "0000",
+            "DBNAME": "marketplace",
+            "DBPASS": "77Cjsua0129jaJsiMMnatLz99w8sk",
+            "DBUSER": "marketplace",
+            "AWS_XRAY_CONTEXT_MISSING": "LOG_ERROR",
+            "NODE_PORT": "8082",
+            "ENVIRONMENT": "production",
+            "LOG_LEVEL": "warn",
+            "MKPKMSARN": "arn:aws:kms:eu-west-1:338811051725:key/3e18c8f2-ad98-454c-9e33-3e61236d4949",
+            "MKPLAMBDAROLE": "arn:aws:iam::338811051725:role/taker-dev-WorkerLambdaRole-1SC54RTTEFON2",
+            "SENTRY_DNS": "",
+            "SENTRY_LOG_LEVEL": "error",
+            "USE_POOL": "false",
+            "XRAY_SAMPLING_RULES_DEFAULT_RATE": "1"
+          }
+        },
+        "Events": {
+          "ProxyApiRoot": {
+            "Type": "Api",
+            "Properties": {
+              "RestApiId": {
+                "Ref": "ApiGatewayApi"
+              },
+              "Path": "/",
+              "Method": "ANY"
+            }
+          },
+          "ProxyApiGreedy": {
+            "Type": "Api",
+            "Properties": {
+              "RestApiId": {
+                "Ref": "ApiGatewayApi"
+              },
+              "Path": "/{proxy+}",
+              "Method": "ANY"
+            }
+          }
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "LambdaFunctionConsoleUrl": {
+      "Description": "Console URL for the Lambda Function.",
+      "Value": {
+        "Fn::Join": [
+          "", [
+            "https://",
+            {
+              "Ref": "AWS::Region"
+            },
+            ".console.aws.amazon.com/lambda/home?region=",
+            {
+              "Ref": "AWS::Region"
+            },
+            "#/functions/",
+            {
+              "Ref": "YOUR_TECHNICAL_LAMBDA_NAME"
+            }
+          ]
+        ]
+      }
+    },
+    "ApiGatewayApiConsoleUrl": {
+      "Description": "Console URL for the API Gateway API's Stage.",
+      "Value": {
+        "Fn::Join": [
+          "", [
+            "https://",
+            {
+              "Ref": "AWS::Region"
+            },
+            ".console.aws.amazon.com/apigateway/home?region=",
+            {
+              "Ref": "AWS::Region"
+            },
+            "#/apis/",
+            {
+              "Ref": "ApiGatewayApi"
+            },
+            "/stages/YOUR_API_GW_STAGE"
+          ]
+        ]
+      }
+    },
+    "ApiUrl": {
+      "Description": "Invoke URL for your API. Clicking this link will perform a GET request on the root resource of your API.",
+      "Value": {
+        "Fn::Join": [
+          "", [
+            "https://",
+            {
+              "Ref": "ApiGatewayApi"
+            },
+            ".execute-api.",
+            {
+              "Ref": "AWS::Region"
+            },
+            ".amazonaws.com/YOUR_API_GW_STAGE/"
+          ]
+        ]
+      }
+    }
+  }
+}
